@@ -1,0 +1,23 @@
+# Visual Studio build output
+Debug/
+Release/
+x64/
+.vs/
+*.obj
+*.pdb
+*.ilk
+*.exe
+*.tlog
+*.log
+*.recipe
+*.idb
+*.user
+*.suo
+
+# Local builds of the desktop game
+alien-attack
+alien-attack.exe
+
+# OS clutter
+.DS_Store
+Thumbs.db
