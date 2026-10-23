@@ -1,8 +1,11 @@
 #include "gameHeader.h"
+#include <cstdlib>
+#include <ctime>
 /*
 *  game.cpp
 *     - A simple game loop that allows you to move the ship
-*       and eventually fire a missile.
+*       and fire missiles at the alien. Shoot the alien down to
+*       score points - it comes back faster every time.
 *  AUTHOR: Most of the work in this program was completed by Prof. Andy Harbert
 *          Prof. Pat Smith has made modifications (December 2021)
 *
@@ -10,8 +13,10 @@
 
 int main()
 {
-    // Create the window for graphics. 
-    //  The "aliens" is the text in the title bar on the window. 
+    srand(static_cast<unsigned>(time(nullptr)));
+
+    // Create the window for graphics.
+    //  The "aliens" is the text in the title bar on the window.
     RenderWindow window(VideoMode({ WINDOW_WIDTH, WINDOW_HEIGHT }), "Aliens!"); // window: The main game window
 
     // Limit the framerate to 60 frames per second
@@ -22,7 +27,7 @@ int main()
 
     // a Texture is an image of pixels. You can load a .png file
     //   or a bitmap file.  These files are in the "Resource files" section of
-    //   the solution explorer. 
+    //   the solution explorer.
     Texture shipTexture; // shipTexture: Stores the image data for the ship
     if (!shipTexture.loadFromFile("ship.png"))
     {
@@ -39,7 +44,7 @@ int main()
         exit(EXIT_FAILURE);
     }
 
-    // An alien bitmap is provided in the Resource Files... 
+    // An alien bitmap is provided in the Resource Files...
     //  Perhaps you'll want to make your own alien though...
     Texture alienTexture; // alienTexture: Stores the image data for the alien
     if (!alienTexture.loadFromFile("alien.bmp"))
@@ -52,17 +57,23 @@ int main()
     movingAlien.setPosition({ 5.0f, 20.0f }); // Set alien near top-left
     movingAlien.setScale({ 2.0, 2.0 }); // Scale alien 2x
     bool alienMovingRight = true; // alienMovingRight: Boolean flag to track alien movement direction
+    float alienSpeed = ENEMY_SPEED; // alienSpeed: Current alien speed, goes up after every hit
 
     Sprite background(starsTexture); // background: The sprite that represents the background
-    //background.setTexture(starsTexture); // load the starsTexture object into the sprite.
     // The texture file is 640x480, so scale it up a little to cover 800x600 window
-    background.setScale({ 1.5, 1.5 });// must include vector2 types in curly braces. 
+    background.setScale({ 1.5, 1.5 });// must include vector2 types in curly braces.
 
     // create sprite and texture it
     Sprite ship(shipTexture); // ship: The main player's ship sprite
+    ship.setScale({ 2.5, 2.5 });
 
-    // *** You will have to code to load the  texture for the missile here. 
-    // Then create the missile Sprite...  
+    // The ship starts near the bottom of the screen, in the area it can
+    // actually move around in (it used to spawn mid-screen, above the
+    // boundary that moveShip() enforced, so it couldn't move up).
+    float shipX = window.getSize().x / 2.0f; // shipX: X-coordinate of the ship (center of window)
+    float shipY = WINDOW_HEIGHT - 90.0f; // shipY: Y-coordinate of the ship (near the bottom)
+    ship.setPosition({ shipX, shipY });
+
     Texture missileTexture; // missileTexture: Stores the image data for the missile
     if (!missileTexture.loadFromFile("missile.png"))
     {
@@ -73,43 +84,36 @@ int main()
     Sprite missile(missileTexture); // missile: The missile sprite
     missile.setScale({ 2.0, 2.0 }); // Scale missile 2x
 
-    // initial position of the ship will be approx middle of screen
-    float shipX = window.getSize().x / 2.0f; // shipX: X-coordinate of the ship (center of window)
-    float shipY = window.getSize().y / 2.0f; // shipY: Y-coordinate of the ship (center of window)
-    ship.setPosition({ shipX, shipY });
-    ship.setScale({ 2.5, 2.5 });
-
     bool isMissileInFlight = false; // isMissileInFlight: Tracks whether a missile is active on screen
+
+    // Score display. If the font can't be loaded the game still runs,
+    // the score just gets printed to the console like the hits used to be.
+    int score = 0; // score: Player's score
+    Font font; // font: Font for the on-screen score
+    bool fontLoaded = font.openFromFile("C:/Windows/Fonts/arial.ttf");
+    Text scoreText(font, "Score: 0", 24); // scoreText: On-screen score display
+    if (fontLoaded)
+    {
+        scoreText.setPosition({ 10.0f, 10.0f });
+        scoreText.setFillColor(Color::White);
+    }
 
     while (window.isOpen())
     {
         // check all the window's events that were triggered since the last iteration of the loop
-        // For now, we just need this so we can click on the window and close it
-        // don't declare an event here, it will be declared in the while loop!
-        // Event event;
-
-        // This while loop checks to see if anything happened since last time
-        // we drew the window and all its graphics. 
-        // while (window.pollEvent(event)) // this was SFML 2.x version
-        while (const std::optional event = window.pollEvent()) // get a polling event. 
+        while (const std::optional event = window.pollEvent()) // get a polling event.
         {
-            // if (event.type == Event::Closed) // Did the user kill the window by pressing the "X"?
-            if (event->is<sf::Event::Closed>()) // new 3.0.0 check on event "what *is* it?"
+            if (event->is<sf::Event::Closed>()) // Did the user kill the window by pressing the "X"?
                 window.close();
-            //else if (event.type == Event::KeyPressed) // did the user press a key on the keyboard?
             else if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>())
             {
-                // if the key that was pressed was a space, fire a missile. 
+                // if the key that was pressed was a space, fire a missile.
                 if (keyPressed->scancode == sf::Keyboard::Scancode::Space && !isMissileInFlight)
                 {
                     isMissileInFlight = true;
                     // Set missile position slightly above the ship
                     Vector2f shipPos = ship.getPosition(); // shipPos: Holds the current ship position
                     missile.setPosition({ shipPos.x + 15, shipPos.y - 10 });
-
-                    // You add the code to initialize missile positino
-                    //  You should have created a missile sprite 
-                    // above the main loop, maybe around line 60? 
                 }
             }
         }
@@ -120,42 +124,38 @@ int main()
         // render the next frame, and so on. All this happens ~ 60 times/second.
         //===========================================================
 
-        // draw background first, so everything that's drawn later 
-        // will appear on top of background
-        window.draw(background);
-
-        //detect key presses to update the position of the ship. 
-        //See moveShip() function above.
+        // detect key presses to update the position of the ship.
         moveShip(ship);
 
-        // draw the ship on top of background 
-        // (the ship from previous frame was erased when we drew background)
-        window.draw(ship);
-
         // Missile movement logic
-        if (isMissileInFlight)
-        {
-            missile.move({ 0, -5.0f }); // Move missile up 5px
-
-            if (missile.getPosition().y < 0) // Missile off top?
-            {
-                isMissileInFlight = false; // Hide missile
-            }
-        }
+        moveMissile(missile, isMissileInFlight);
 
         // Move alien enemy
-        moveEnemy(movingAlien, alienMovingRight);
+        moveEnemy(movingAlien, alienMovingRight, alienSpeed);
 
         // Check if missile hits alien
         if (isMissileInFlight && checkCollision(missile, movingAlien))
         {
-            cout << "Hit!" << endl;
+            score += ALIEN_POINTS;
+            cout << "Hit! Score: " << score << endl;
             isMissileInFlight = false;
+
+            // Bring the alien back at a random spot along the top,
+            // a little faster than before.
+            float alienWidth = movingAlien.getGlobalBounds().size.x;
+            float maxX = WINDOW_WIDTH - alienWidth;
+            float newX = static_cast<float>(rand() % static_cast<int>(maxX));
+            movingAlien.setPosition({ newX, 20.0f });
+            alienSpeed += 0.5f;
+
+            scoreText.setString("Score: " + to_string(score));
         }
 
-        // end the current frame; this makes everything that we have 
-        // already "drawn" actually show up on the screen
+        // Draw the frame. clear() has to come FIRST - this used to draw
+        // the background and the ship and then clear the window, which
+        // erased them, so the background never showed up at all.
         window.clear();
+        window.draw(background);
         window.draw(ship);
         window.draw(movingAlien); // Draw alien
 
@@ -164,13 +164,16 @@ int main()
             window.draw(missile);
         }
 
+        if (fontLoaded)
+        {
+            window.draw(scoreText);
+        }
+
         window.display();
 
         // At this point the frame we have built is now visible on screen.
         // Now control will go back to the top of the animation loop
-        // to build the next frame. Since we begin by drawing the
-        // background, each frame is rebuilt from scratch.
-
+        // to build the next frame.
     } // end body of animation loop
 
     return 0;
