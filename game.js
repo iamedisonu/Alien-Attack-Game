@@ -140,7 +140,7 @@ function updateHud() {
   hudScore.textContent = score;
   hudBest.textContent = best;
   hudWave.textContent = wave;
-  hudLives.textContent = lives > 0 ? "🚀".repeat(lives) : "—";
+  hudLives.textContent = lives > 0 ? "❤️".repeat(lives) : "—";
   hudLives.setAttribute("aria-label", lives + (lives === 1 ? " life" : " lives"));
 }
 
